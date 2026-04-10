@@ -84,6 +84,15 @@ class pyRadPlanPlanOptimizer(AbstractScriptedPlanOptimizer):
       else:
         objectives_dict[segmentName].append(objective_info)
 
+    print("Objectives extracted from Slicer objectives table:\n")
+    for segmentName, objectives_list in objectives_dict.items():
+      print(f"Segment: {segmentName}")
+      for objective_info in objectives_list:
+        print(f"  Objective: {objective_info['objectiveName']}")
+        print(f"    Overlap Priority: {objective_info['overlapPriority']}")
+        print(f"    Penalty: {objective_info['penalty']}")
+        print(f"    Parameters: {objective_info['parameters']}\n")
+
 
     ###################################### Get overlap priorites #########################################
     overlap_priority_dict = {}

@@ -69,7 +69,7 @@ def preparePln(beamNode, ct, dose_grid_from_beamNode=False):
     if doseGridSpacing[0] < 0 or doseGridSpacing[1] < 0 or doseGridSpacing[2] < 0 :
       print("Warning: Dose grid spacing in beamNode is invalid. Using planNode's dose grid spacing.")
       doseGridSpacing = planNode.GetDoseGridSpacing()
-    dose_grid = ct.grid.copy().resample(target_resolution=doseGridSpacing)
+    dose_grid = ct.grid.model_copy().resample(target_resolution=doseGridSpacing)
     # Set new dose grid spacing in planNode if necessary
     if doseGridSpacing != planNode.GetDoseGridSpacing():
       planNode.SetDoseGridSpacing(doseGridSpacing)
