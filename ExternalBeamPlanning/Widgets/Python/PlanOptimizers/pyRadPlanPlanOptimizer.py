@@ -212,41 +212,44 @@ class pyRadPlanPlanOptimizer(AbstractScriptedPlanOptimizer):
     ##################################### Visualize dose in Slicer #######################################
     self.scriptedPlanOptimizer.progressInfoUpdated("visualize dose")
 
-    total_dose = result["physical_dose"]
+    # Get global variables for dose volume node naming and hierarchy placement
+    shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+    planItemID = shNode.GetItemByDataNode(planNode)
+    rxDose = planNode.GetRxDose()
 
-    # TODO: directly get dose per beam from overlay=result.beam_quantities["physical_dose"][0].distribution (once result_gui is merged)
-    # Now: manually get dose per beam and create a new volume node for each beam
-    for i in range(planNode.GetNumberOfBeams()):
-      mask = (dij.beam_num == i)
-      fluence_for_beam = np.zeros_like(fluence)
-      fluence_for_beam[mask] = fluence[mask]
-      result_for_beam = dij.compute_result_ct_grid(fluence_for_beam)
-      dose_per_beam = result_for_beam["physical_dose"]
+    # Get dose for each and beam
+    if (planNode.GetNumberOfBeams() > 1):
+      for i, beamName in enumerate(beam_names):
+        # Create a new volume node for each beam
+        beamDoseVolumeNodeName = f'{planNode.GetName()}_pyRadPlanOptimized_physicalDose_{beamName}'
+        beamDoseVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", beamDoseVolumeNodeName)
+        displayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeDisplayNode")
+        beamDoseVolumeNode.SetAndObserveDisplayNodeID(displayNode.GetID())
+        sitkUtils.PushVolumeToSlicer(result['physical_dose_beam'][i], beamDoseVolumeNode)
 
-      # Create a new volume node for each beam
-      beamDoseVolumeNodeName = f'{planNode.GetName()}_pyRadOptimizedDose_Beam_{i+1}'
-      beamDoseVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", beamDoseVolumeNodeName)
-      displayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeDisplayNode")
-      beamDoseVolumeNode.SetAndObserveDisplayNodeID(displayNode.GetID())
+        # Place under the plan in the hierarchy
+        itemID = shNode.GetItemByDataNode(beamDoseVolumeNode)
+        shNode.SetItemParent(itemID, planItemID)
 
-      sitkUtils.PushVolumeToSlicer(dose_per_beam, beamDoseVolumeNode)
+        # Tag & trigger re-evaluation as dose volume
+        shNode.SetItemAttribute(itemID, 'DoseUnitName', "Gy")
+        shNode.SetItemAttribute(itemID, 'DoseUnitValue', "1.0")
+        beamDoseVolumeNode.SetAttribute("DicomRtImport.DoseVolume", "1")
+        shNode.RequestOwnerPluginSearch(itemID)
+        shNode.ItemModified(itemID)
 
-      # Set colormap
-      rxDose = planNode.GetRxDose()
-      displayNode = beamDoseVolumeNode.GetDisplayNode()
-      displayNode.SetAndObserveColorNodeID("vtkMRMLColorTableNodeDose_ColorTable_Relative")
-      displayNode.AutoWindowLevelOn()
-      displayNode.SetLowerThreshold(0.05*rxDose)
-      displayNode.ApplyThresholdOn()
+        # Set colormap
+        displayNode.SetAndObserveColorNodeID("vtkMRMLColorTableNodeDose_ColorTable_Relative")
+        displayNode.AutoWindowLevelOn()
+        displayNode.SetLowerThreshold(0.05*rxDose)
+        displayNode.ApplyThresholdOn()
 
-    # Push total dose to volumeNode in Slicer
-    sitkUtils.PushVolumeToSlicer(total_dose, targetNode = resultOptimizationVolumeNode)
-
-    # Set name of result volume node
+    # Push total dose to volumeNode in Slicer, set name & overlay on CT
+    sitkUtils.PushVolumeToSlicer(result["physical_dose"], targetNode = resultOptimizationVolumeNode)
     try:
       resultOptimizationVolumeNodeName = planNode.GetOutputTotalDoseVolumeNode().GetName()
     except AttributeError:
-      resultOptimizationVolumeNodeName = str(planNode.GetName())+"_pyRadOptimizedDose"
+      resultOptimizationVolumeNodeName = str(planNode.GetName())+"_pyRadPlanOptimized_physicalDose"
     resultOptimizationVolumeNode.SetName(resultOptimizationVolumeNodeName)
 
     return str()
