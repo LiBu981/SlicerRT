@@ -34,7 +34,7 @@ def prepareCst(beamNode, ct):
     segmentArray = np.uint8(segmentArray)
     segmentName = segmentation.GetSegment(id).GetName()
     # Set VOI type as 'TARGET' if segment is selected as target, otherwise 'OAR'
-    voi_type = 'TARGET' if id==planNode.GetTargetSegmentID() else 'OAR'
+    voi_type = 'TARGET' if id in planNode.GetTargetSegmentIDs().split('|') else 'OAR'
     voi = create_voi(voi_type=voi_type, name=segmentName, ct_image=ct, mask=segmentArray)
     vois.append(voi)
 
